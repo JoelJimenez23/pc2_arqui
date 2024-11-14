@@ -1,0 +1,59 @@
+$date
+	Thu Nov 14 16:00:08 2024
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1s
+$end
+$scope module testbench $end
+$var wire 32 ! y_abs [31:0] $end
+$var wire 32 " y [31:0] $end
+$var reg 32 # rm [31:0] $end
+$var reg 32 $ rn [31:0] $end
+$scope module sd $end
+$var wire 32 % rm [31:0] $end
+$var wire 32 & rn [31:0] $end
+$var wire 32 ' y [31:0] $end
+$upscope $end
+$scope module ud $end
+$var wire 32 ( rm [31:0] $end
+$var wire 32 ) rn [31:0] $end
+$var wire 32 * y [31:0] $end
+$var wire 32 + abs_rn [31:0] $end
+$var wire 32 , abs_rm [31:0] $end
+$scope module a_rm $end
+$var wire 32 - value [31:0] $end
+$var wire 32 . abs_value [31:0] $end
+$upscope $end
+$scope module a_rn $end
+$var wire 32 / value [31:0] $end
+$var wire 32 0 abs_value [31:0] $end
+$upscope $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+$comment Show the parameter values. $end
+$dumpall
+$end
+#0
+$dumpvars
+b1100 0
+b11111111111111111111111111110100 /
+b10 .
+b10 -
+b10 ,
+b1100 +
+b110 *
+b11111111111111111111111111110100 )
+b10 (
+b1111111111111111111111111111010 '
+b11111111111111111111111111110100 &
+b10 %
+b11111111111111111111111111110100 $
+b10 #
+b1111111111111111111111111111010 "
+b110 !
+$end
+#1

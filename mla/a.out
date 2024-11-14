@@ -1,0 +1,44 @@
+#! /usr/bin/vvp
+:ivl_version "12.0 (stable)" "(v12_0-dirty)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision + 0;
+:vpi_module "/usr/lib/ivl/system.vpi";
+:vpi_module "/usr/lib/ivl/vhdl_sys.vpi";
+:vpi_module "/usr/lib/ivl/vhdl_textio.vpi";
+:vpi_module "/usr/lib/ivl/v2005_math.vpi";
+:vpi_module "/usr/lib/ivl/va_math.vpi";
+S_0x620d3c70b4b0 .scope module, "testbench" "testbench" 2 8;
+ .timescale 0 0;
+v0x620d3c72ed90_0 .var "rm", 31 0;
+v0x620d3c72ee80_0 .var "rn", 31 0;
+v0x620d3c72ef50_0 .net "y", 31 0, L_0x620d3c72f050;  1 drivers
+S_0x620d3c71e610 .scope module, "m" "mla" 2 11, 2 1 0, S_0x620d3c70b4b0;
+ .timescale 0 0;
+    .port_info 0 /INPUT 32 "rn";
+    .port_info 1 /INPUT 32 "rm";
+    .port_info 2 /OUTPUT 32 "y";
+v0x620d3c71e7f0_0 .net "rm", 31 0, v0x620d3c72ed90_0;  1 drivers
+v0x620d3c72eb70_0 .net "rn", 31 0, v0x620d3c72ee80_0;  1 drivers
+v0x620d3c72ec50_0 .net "y", 31 0, L_0x620d3c72f050;  alias, 1 drivers
+L_0x620d3c72f050 .arith/mult 32, v0x620d3c72ee80_0, v0x620d3c72ed90_0;
+    .scope S_0x620d3c70b4b0;
+T_0 ;
+    %pushi/vec4 2, 0, 32;
+    %store/vec4 v0x620d3c72ee80_0, 0, 32;
+    %pushi/vec4 4, 0, 32;
+    %store/vec4 v0x620d3c72ed90_0, 0, 32;
+    %delay 2, 0;
+    %vpi_call 2 14 "$finish" {0 0 0};
+    %end;
+    .thread T_0;
+    .scope S_0x620d3c70b4b0;
+T_1 ;
+    %vpi_call 2 17 "$dumpfile", "provando.vcd" {0 0 0};
+    %vpi_call 2 18 "$dumpvars" {0 0 0};
+    %end;
+    .thread T_1;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+    "N/A";
+    "<interactive>";
+    "mla.v";
