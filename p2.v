@@ -242,18 +242,33 @@ module decode (
 	always @(*)
 		if (ALUOp) begin
 			case (Funct[4:1])
-				4'b0100: ALUControl = 3'b000;	// add
-				4'b0010: ALUControl = 3'b001;	// sub
-				4'b0000: ALUControl = 3'b010;	// and 
-				4'b1100: ALUControl = 3'b011;	// or
-				4'b0001: ALUControl = 3'b100;	// EOR
+				4'b0100: begin
+						ALUControl = 3'b000;	// add
+						Shift=1'b0;
+				end
+				4'b0010: begin 
+						ALUControl = 3'b001;	// sub
+						Shift=1'b0;
+				end
+				4'b0000:begin 
+						ALUControl = 3'b010;	// and 
+						Shift=1'b0;
+				end
+				4'b1100:begin
+						ALUControl = 3'b011;	// or
+						Shift=1'b0;
+				end 		
+				4'b0001: begin
+						ALUControl = 3'b100;	// EOR
+						Shift=1'b0;
+				end	
 				4'b1101: begin
 						ALUControl = 3'b101;
 						Shift=1'b1;	// shift	
 				end
 				default:begin 
 						ALUControl = 3'bxxx;
-						Shift=1'bx;
+						Shift=1'b0;
 				end
 			endcase
 			FlagW[1] = Funct[0];
@@ -443,7 +458,7 @@ module datapath (
 		.rd2(WriteData)
 	);
 	mux2 #(32) resmux(
-		.d0(ALUResult),
+		.d0(ALUResultOut),
 		.d1(ReadData),
 		.s(MemtoReg),
 		.y(Result)
@@ -453,12 +468,6 @@ module datapath (
 		.ImmSrc(ImmSrc),
 		.ExtImm(ExtImm)
 	);
-	// mux2 #(32) srcbmux(
-	// 	.d0(WriteData),
-	// 	.d1(ExtImm),
-	// 	.s(ALUSrc),
-	// 	.y(SrcB)
-	// );
 
 	shifter sh(		//LSL
 		.a(WriteData),
@@ -632,9 +641,9 @@ endmodule
 
 
 // shifter  LSL 
-module shifter(input wire [31:0] a, 
-               input wire  [4:0] shamt, 
-               input wire  [1:0] shtype, 
+module shifter(input  [31:0] a, 
+               input  [4:0] shamt, 
+               input  [1:0] shtype, 
                output reg [31:0] y); 
  
   always @(*) begin
