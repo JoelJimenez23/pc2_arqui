@@ -252,6 +252,9 @@ module decode (
 	output reg Shift;	// shift
 	output reg Div;		// Div
 	output reg Mul;		// MLA
+	output reg DMSrc;
+	output reg Div_sel;
+	input wire [3:0] Instrnew;
 	reg [9:0] controls;
 	wire Branch;
 	wire ALUOp;
@@ -429,186 +432,168 @@ module condcheck (
 		endcase
 endmodule
 module datapath (
-	clk,
-	reset,
-	RegSrc,
-	RegWrite,
-	ImmSrc,
-	ALUSrc,
-	ALUControl,
-	MemtoReg,
-	PCSrc,
-	ALUFlags,
-	PC,
-	Instr,
-	ALUResultOut,
-	WriteData,
-	ReadData,
-	Shift,	// shift
-	Div,	//  Div
-	Mul		// Mul
-);
-	input wire clk;
-	input wire reset;
-	input wire [1:0] RegSrc;
-	input wire RegWrite;
-	input wire [1:0] ImmSrc;
-	input wire ALUSrc;
-	input wire [2:0] ALUControl;
-	input wire MemtoReg;
-	input wire PCSrc;
-	output wire [3:0] ALUFlags;
-	output wire [31:0] PC;
-	input wire [31:0] Instr;
-	output wire [31:0] ALUResultOut;
-	output wire [31:0] WriteData;
-	input wire [31:0] ReadData;
-	input wire Shift;
-	input wire Div;
-	input wire Mul;
-	wire [31:0] PCNext;
-	wire [31:0] PCPlus4;
-	wire [31:0] PCPlus8;
-	wire [31:0] ExtImm;
-	wire [31:0] SrcA;
-	wire [31:0] SrcB;
-	wire [31:0] Result;
-	wire [3:0] RA1;
-	wire [3:0] RA2;
-	wire [31:0] srcBshifted;
-	wire [31:0] ALUResult; //LSL
-	wire [31:0] SrcAD;
-	wire [31:0] SrcAM;
-	wire [31:0] ALUResultMV;
-    //wire [3:0] A3;
-    //wire [3:0] RA11;
-	mux2 #(32) pcmux(
-		.d0(PCPlus4),
-		.d1(Result),
-		.s(PCSrc),
-		.y(PCNext)
-	);
-	flopr #(32) pcreg(
-		.clk(clk),
-		.reset(reset),
-		.d(PCNext),
-		.q(PC)
-	);
-	adder #(32) pcadd1(
-		.a(PC),
-		.b(32'b100),
-		.y(PCPlus4)
-	);
-	adder #(32) pcadd2(
-		.a(PCPlus4),
-		.b(32'b100),
-		.y(PCPlus8)
-	);
-	mux2 #(4) ra1mux(
-		.d0(Instr[19:16]),
-		.d1(4'b1111),
-		.s(RegSrc[0]),
-		.y(RA1)
-	);
-	mux2 #(4) ra2mux(
-		.d0(Instr[3:0]),
-		.d1(Instr[15:12]),
-		.s(RegSrc[1]),
-		.y(RA2)
-	);
+    input wire clk,
+    input wire reset,
+    input wire [1:0] RegSrc,
+    input wire RegWrite,
+    input wire [1:0] ImmSrc,
+    input wire ALUSrc,
+    input wire [2:0] ALUControl,
+    input wire MemtoReg,
+    input wire PCSrc,
+    output wire [3:0] ALUFlags,
+    output wire [31:0] PC,
+    input wire [31:0] Instr,
+    output wire [31:0] ALUResult,
+    output wire [31:0] WriteData,
+    input wire [31:0] ReadData,
+    input wire DivMulSrc, 
+    input wire shif_op,   
+    input wire div_op,    
+    input wire mla_op,    
+    input wire div_sel    
 
-	// Nuevo mux
-	// mux2 #(4) ra11mux(
-	// 	.d0(RA11),
-	// 	.d1(Instr[3:0]),
-	// 	.s(),
-	// 	.y(RA1)
-	// );
+    wire [31:0] PCNext;
+    wire [31:0] PCPlus4;
+    wire [31:0] PCPlus8;
+    wire [31:0] ExtImm;
+    wire [31:0] SrcA;
+    wire [31:0] SrcB;
+    wire [31:0] Result;
+    wire [31:0] ALUResultTemp;
+    wire [31:0] MULResult;
+    wire [31:0] DIVResult;
+    wire [31:0] SrcB_shifted;
+    wire [31:0] ALUResultFinal;
+    wire [3:0] RA1, RA2, RA4;
 
-    // mux2 #(4) a3mux(
-    //     .d0(Instr[15:12]),
-    //     .d1(Instr[19:16]),
-    //     .s(),
-    //     .y(A3)
-    // );
+    mux2 #(32) pcmux(
+        .d0(PCPlus4),
+        .d1(Result),
+        .s(PCSrc),
+        .y(PCNext)
+    );
+    
 
-	regfile rf(
-		.clk(clk),
-		.we3(RegWrite),
-		.ra1(RA1),
-		.ra2(RA2),
-		.wa3(Instr[15:12]), //A3
-		.wd3(Result),
-		.r15(PCPlus8),
-		.rd1(SrcA),
-		.rd2(WriteData)
-	);
+    flopr #(32) pcreg(
+        .clk(clk),
+        .reset(reset),
+        .d(PCNext),
+        .q(PC)
+    );
 
-	mla mul(
-		.rn(Instr[19:16]),
-		.rm(Instr[15:12]),
-		.y(SrcAM)
-	);
+    adder #(32) pcadd1(
+        .a(PC),
+        .b(32'b100),
+        .y(PCPlus4)
+    );
+    adder #(32) pcadd2(
+        .a(PCPlus4),
+        .b(32'b100),
+        .y(PCPlus8)
+    );
 
-    divider div(
-        .rn(Instr[3:0]),
-        .rm(Instr[11:8]),
-        .op(1'b1),
-        .y(SrcAD)
+    mux2 #(4) ra1mux(
+        .d0(Instr[19:16]),
+        .d1(Instr[3:0]),
+        .s(DivMulSrc),
+        .y(RA1)
+    );
+
+    mux2 #(4) ra2mux(
+        .d0(Instr[3:0]),
+        .d1(Instr[15:12]),
+        .s(RegSrc[1]),
+        .y(RA2)
+    );
+
+    mux2 #(4) ra4mux(
+        .d0(Instr[15:12]),
+        .d1(Instr[19:16]),
+        .s(DivMulSrc),
+        .y(RA4)
+    );
+
+    
+    regfile rf(
+        .clk(clk),
+        .we3(RegWrite),
+        .ra1(RA1),
+        .ra2(RA2),
+        .wa3(Instr[15:12]), 
+        .wd3(Result),
+        .r15(PCPlus8),
+        .rd1(SrcA),
+        .rd2(WriteData)
+    );
+
+    mux4 #(32) muldivmux(
+        .d0(SrcA),      
+        .d1(MULResult), 
+        .d2(DIVResult), 
+        .d3(32'b1),     
+        .s({mla_op, div_op}), 
+        .y(ALUResultFinal)
+    );
+
+    mux2 #(32) resmux(
+        .d0(ALUResultFinal),
+        .d1(ReadData),
+        .s(MemtoReg),
+        .y(Result)
+    );
+
+    extend ext(
+        .Instr(Instr[23:0]),
+        .ImmSrc(ImmSrc),
+        .ExtImm(ExtImm)
+    );
+
+    shifter shifter1(
+        .a(WriteData),
+        .shamt(Instr[11:8]),
+        .shtype(Instr[6:5]),
+        .y(SrcB_shifted)
+    );
+
+    mux2 #(32) srcbmux(
+        .d0(SrcB_shifted),
+        .d1(ExtImm),
+        .s(ALUSrc),
+        .y(SrcB)
     );
 
 
+    alu alu1(
+        .a(SrcA),
+        .b(SrcB),
+        .alu_control(ALUControl),
+        .y(ALUResultTemp),
+        .flags(ALUFlags)
+    );
+    mux2 #(32) aluresultmux(
+        .d0(ALUResultTemp),
+        .d1(SrcB),
+        .s(shif_op),
+        .y(ALUResult)
+    );
 
-	mux4 #(32) muldivmux(
-		.d0(SrcA),
-		.d1(SrcAM),
-		.d2(SrcAD),
-		.d3(32'b1),
-		.s({Mul,Div}),
-		.y(ALUResultMV)
-	);
+    divider div1(
+        .rn(SrcA),
+        .rm(SrcB),
+        .op(div_sel),
+        .y(DIVResult)
+    );
 
+    mla mla1(
+        .rn(SrcA),
+        .rm(SrcB),
+        .mla_op(mla_op),
+        .y(MULResult)
+    );
 
-	mux2 #(32) resmux(
-		.d0(ALUResultOut),
-		.d1(ReadData),
-		.s(MemtoReg),
-		.y(Result)
-	);
-	extend ext(
-		.Instr(Instr[23:0]),
-		.ImmSrc(ImmSrc),
-		.ExtImm(ExtImm)
-	);
-
-	shifter sh(		//LSL
-		.a(WriteData),
-		.shamt(Instr[11:8]),
-		.shtype(Instr[6:5]),
-		.y(srcBshifted)
-	);
-
-	mux2 #(32) srcbmux(
-		.d0(srcBshifted),
-		.d1(ExtImm),
-		.s(ALUSrc),
-		.y(SrcB)
-	);
-
-	mux2 #(32) aluresultmux(	//LSL
-		.d0(ALUResult),
-		.d1(SrcB),
-		.s(Shift),
-		.y(ALUResultOut)
-	);
-	alu alu(
-		SrcAD,
-		SrcB,
-		ALUControl,
-		ALUResultMV,
-		ALUFlags
-	);
 endmodule
+
 module regfile (
 	clk,
 	we3,
