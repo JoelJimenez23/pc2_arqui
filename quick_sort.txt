@@ -1,0 +1,88 @@
+.global _start
+_start:
+	
+	mov r0,#0x400 //base address
+	mov r1,#6 //longitud
+	
+  mov r1,#34
+	str r1,[r0],#4
+	
+	mov r1,#7
+	str r1,[r0],#4
+	
+	mov r1,#23
+	str r1,[r0],#4
+	
+	mov r1,#32
+	str r1,[r0],#4
+	
+	mov r1,#5
+	str r1,[r0],#4
+	
+	mov r1,#62
+	str r1,[r0]
+	
+
+	mov r0,#0x400 //base address
+	mov r1,#9 //longitud
+		
+	
+	mov r12,sp
+	mov r2,#0//left
+	sub r3,r1,#1
+	push {r3}	//almacenar right
+	push {r2}	//almacenar left
+partitioning:
+	cmp sp,r12	//comparamos si sp apunta al valor inicial
+	beq exit
+	pop {r2}	//obtenemos el valor de left
+	pop {r3}	//obtenemos el valor de right
+	add r5,r2,r3			//left + right
+	lsr r5,r5,#1			//left + right/2
+	ldr r4,[r0,r5,lsl #2] 	//pivot array[ left + right]/2
+	push {r2,r3}			//{left/right} almacenamos los valores iniciales
+	
+bucle_1:
+	cmp r2,r3
+	bgt recursive // i <= j
+bucle_2:
+	ldr r5,[r0,r2,lsl #2] 
+	cmp r5,r4	//pivot > array[i]
+	bge bucle_3 //sino cumple, pasa al siguiente ciclo
+	add r2,r2,#1 // si cumple, i++
+	b bucle_2
+bucle_3:
+	ldr r5,[r0,r3,lsl #2] 
+	cmp r5,r4	//pivot < array [j]
+	ble condition //sino cumple, pasa a la condicion
+	sub r3,r3,#1  //si cumple, i--
+	b bucle_3
+condition:
+	cmp r2,r3		// i <= j
+	bgt bucle_1		// si no se cumple regresa al primer bucle
+	ldr r5,[r0,r2,lsl #2] //tmp arr[i] = r5
+	ldr r6,[r0,r3,lsl #2]	//r6 = arr[j]
+	str r6,[r0,r2,lsl #2]	//arr[i] = arr[j]	
+	str r5,[r0,r3,lsl #2]	//arr[j]	 = tmp
+	add r2,r2,#1			//i++
+	sub r3,r3,#1			//j--
+	b bucle_1
+recursive:
+	pop {r4,r5}		//left y right originales
+	cmp r2,r5		// si i < right 
+	pushlt {r5}		//  push{right}
+	pushlt {r2}		//	push {i}
+	cmp r4,r3		// si left < j 
+	pushlt {r3}		// 	push{j}
+	pushlt {r4}		// 	push{left}
+	b partitioning
+exit:
+	
+	
+	
+	
+	
+	
+	
+	
+	
