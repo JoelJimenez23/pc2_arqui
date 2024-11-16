@@ -90,7 +90,12 @@ module arm (
 	wire [1:0] RegSrc;
 	wire [1:0] ImmSrc;
 	wire [2:0] ALUControl;
+	wire DMSrc
 	wire Shift;
+	wire Div;
+	wire Mul;
+	wire Div_sel;
+	wire [3:0] Instrnew;
 	controller c(
 		.clk(clk),
 		.reset(reset),
@@ -104,7 +109,12 @@ module arm (
 		.MemWrite(MemWrite),
 		.MemtoReg(MemtoReg),
 		.PCSrc(PCSrc),
-		.Shift(Shift)
+		// Nuevos controller
+		.Shift(Shift),
+		.Div(Div),
+		.Mul(Mul),
+		.Div_sel(Div_sel),
+		.Instrnew(Instr[7:4])
 	);
 	datapath dp(
 		.clk(clk),
@@ -122,7 +132,12 @@ module arm (
 		.ALUResultOut(ALUResult),
 		.WriteData(WriteData),
 		.ReadData(ReadData),
-		.Shift(Shift)
+		// Nuevos controller
+		.DMSrc(DMSrc),
+		.Shift(Shift),
+		.Div(Div),
+		.Mul(Mul),
+		.Div_sel(Div_sel)
 	);
 endmodule
 module controller (
@@ -138,7 +153,13 @@ module controller (
 	MemWrite,
 	MemtoReg,
 	PCSrc,
-	Shift	// shift
+	// Nuevp controller
+	DMSrc,
+	Shift,	// shift
+	Div,	// Div
+	Mul	,	// Mul
+	Div_sel,
+	Instrnew
 );
 	input wire clk;
 	input wire reset;
@@ -152,7 +173,11 @@ module controller (
 	output wire MemWrite;
 	output wire MemtoReg;
 	output wire PCSrc;
+	output wire DMSrc;
 	output wire Shift;	// shift
+	output wire Div;	// Div
+	output wire Div_sel;
+	output wire Mul; 	// MLA
 	wire [1:0] FlagW;
 	wire PCS;
 	wire RegW;
@@ -170,7 +195,13 @@ module controller (
 		.ImmSrc(ImmSrc),
 		.RegSrc(RegSrc),
 		.ALUControl(ALUControl),
-		.Shift(Shift)	// shift
+		// Nuevo decoder
+		.Shift(Shift),	// shift
+		.Div(Div),
+		.Mul(Mul)
+		.DMSrc(DMSrc),
+		.Div_sel(Div_sel),
+		.Instrnew(Instrnew)
 	);
 	condlogic cl(
 		.clk(clk),
@@ -199,7 +230,12 @@ module decode (
 	ImmSrc,
 	RegSrc,
 	ALUControl,
-	Shift	// shift
+	Shift,	// shift
+	Div,		// Div
+	Mul,	// Mul
+	DMSrc,
+	Div_sel,
+	Instrnew
 );
 	input wire [1:0] Op;
 	input wire [5:0] Funct;
@@ -214,6 +250,8 @@ module decode (
 	output wire [1:0] RegSrc;
 	output reg [2:0] ALUControl;
 	output reg Shift;	// shift
+	output reg Div;		// Div
+	output reg Mul;		// MLA
 	reg [9:0] controls;
 	wire Branch;
 	wire ALUOp;
@@ -226,15 +264,10 @@ module decode (
 					controls = 10'b0000001001;	// DPR
 			2'b01:
 				if (Funct[0])
-					// if (Funct[1])
-						controls = 10'b0001111000;	// LDR
-					// else
-					// 	controls = 10'b0001111100;	// LDRB
+					controls = 10'b0001111000;	// LDR
+
 				else
-					// if (Funct[1])
-						controls = 10'b1001110100;	// STR
-					// else
-					// 	controls = 10'b1001111110;	// STRB
+					controls = 10'b1001110100;	// STR
 			2'b10: controls = 10'b0110100010; //B
 			default: controls = 10'bxxxxxxxxxx;
 		endcase
@@ -245,30 +278,56 @@ module decode (
 				4'b0100: begin
 						ALUControl = 3'b000;	// add
 						Shift=1'b0;
+						Div=1'b0;
+						Mul=1'b0;
 				end
 				4'b0010: begin 
 						ALUControl = 3'b001;	// sub
 						Shift=1'b0;
+						Div=1'b0;
+						Mul=1'b0;
 				end
 				4'b0000:begin 
 						ALUControl = 3'b010;	// and 
 						Shift=1'b0;
+						Div=1'b0;
+						Mul=1'b0;
 				end
 				4'b1100:begin
 						ALUControl = 3'b011;	// or
 						Shift=1'b0;
+						Div=1'b0;
+						Mul=1'b0;
 				end 		
 				4'b0001: begin
 						ALUControl = 3'b100;	// EOR
 						Shift=1'b0;
+						Div=1'b0;
+						Mul=1'b0;
 				end	
 				4'b1101: begin
-						ALUControl = 3'b101;
-						Shift=1'b1;	// shift	
+						ALUControl = 3'b101;    // Shift
+						Shift=1'b1;	// shift
+						Div=1'b0;	
+						Mul=1'b0;
+				end
+                4'b1001: begin
+                        ALUControl = 3'b110;	// DIV
+						Shift=1'b0;
+						Div=1'b1;
+						Mul=1'b0;
+                end
+				4'b1111: begin
+						ALUControl = 3'b111;	// MLA
+						Shift=1'b0;
+						Div=1'b0;
+						Mul=1'b1;
 				end
 				default:begin 
 						ALUControl = 3'bxxx;
 						Shift=1'b0;
+						Div=1'b0;
+						Mul=1'b0;
 				end
 			endcase
 			FlagW[1] = Funct[0];
@@ -278,6 +337,8 @@ module decode (
 			ALUControl = 3'b000;
 			FlagW = 2'b00;
 			Shift = 1'b0;
+			Div   = 1'b0;
+			Mul   = 1'b0;
 		end
 	assign PCS = ((Rd == 4'b1111) & RegW) | Branch;
 endmodule
@@ -383,7 +444,9 @@ module datapath (
 	ALUResultOut,
 	WriteData,
 	ReadData,
-	Shift	// shift
+	Shift,	// shift
+	Div,	//  Div
+	Mul		// Mul
 );
 	input wire clk;
 	input wire reset;
@@ -401,6 +464,8 @@ module datapath (
 	output wire [31:0] WriteData;
 	input wire [31:0] ReadData;
 	input wire Shift;
+	input wire Div;
+	input wire Mul;
 	wire [31:0] PCNext;
 	wire [31:0] PCPlus4;
 	wire [31:0] PCPlus8;
@@ -412,6 +477,11 @@ module datapath (
 	wire [3:0] RA2;
 	wire [31:0] srcBshifted;
 	wire [31:0] ALUResult; //LSL
+	wire [31:0] SrcAD;
+	wire [31:0] SrcAM;
+	wire [31:0] ALUResultMV;
+    //wire [3:0] A3;
+    //wire [3:0] RA11;
 	mux2 #(32) pcmux(
 		.d0(PCPlus4),
 		.d1(Result),
@@ -446,17 +516,59 @@ module datapath (
 		.s(RegSrc[1]),
 		.y(RA2)
 	);
+
+	// Nuevo mux
+	// mux2 #(4) ra11mux(
+	// 	.d0(RA11),
+	// 	.d1(Instr[3:0]),
+	// 	.s(),
+	// 	.y(RA1)
+	// );
+
+    // mux2 #(4) a3mux(
+    //     .d0(Instr[15:12]),
+    //     .d1(Instr[19:16]),
+    //     .s(),
+    //     .y(A3)
+    // );
+
 	regfile rf(
 		.clk(clk),
 		.we3(RegWrite),
 		.ra1(RA1),
 		.ra2(RA2),
-		.wa3(Instr[15:12]),
+		.wa3(Instr[15:12]), //A3
 		.wd3(Result),
 		.r15(PCPlus8),
 		.rd1(SrcA),
 		.rd2(WriteData)
 	);
+
+	mla mul(
+		.rn(Instr[19:16]),
+		.rm(Instr[15:12]),
+		.y(SrcAM)
+	);
+
+    divider div(
+        .rn(Instr[3:0]),
+        .rm(Instr[11:8]),
+        .op(1'b1),
+        .y(SrcAD)
+    );
+
+
+
+	mux4 #(32) muldivmux(
+		.d0(SrcA),
+		.d1(SrcAM),
+		.d2(SrcAD),
+		.d3(32'b1),
+		.s({Mul,Div}),
+		.y(ALUResultMV)
+	);
+
+
 	mux2 #(32) resmux(
 		.d0(ALUResultOut),
 		.d1(ReadData),
@@ -471,7 +583,7 @@ module datapath (
 
 	shifter sh(		//LSL
 		.a(WriteData),
-		.shamt(Instr[11:7]),
+		.shamt(Instr[11:8]),
 		.shtype(Instr[6:5]),
 		.y(srcBshifted)
 	);
@@ -490,10 +602,10 @@ module datapath (
 		.y(ALUResultOut)
 	);
 	alu alu(
-		SrcA,
+		SrcAD,
 		SrcB,
 		ALUControl,
-		ALUResult,
+		ALUResultMV,
 		ALUFlags
 	);
 endmodule
@@ -601,6 +713,27 @@ module mux2 (
 	assign y = (s ? d1 : d0);
 endmodule
 
+module mux4 (
+	d0,
+	d1,
+	d2,
+	d3,
+	s,
+	y
+);
+	parameter WIDTH = 8;
+	input wire [WIDTH - 1:0] d0;
+	input wire [WIDTH - 1:0] d1;
+	input wire [WIDTH - 1:0] d2;
+	input wire [WIDTH - 1:0] d3;
+	input wire [1:0] s;
+	output wire [WIDTH - 1:0] y;
+
+	assign y = (s == 2'b00) ? d0 :        // Si s == 00, selecciona d0
+             (s == 2'b01) ? d1 :        // Si s == 01, selecciona d1
+             (s == 2'b10) ? d2 :        // Si s == 10, selecciona d2
+             d3;                        // Si s == 11, selecciona d3
+endmodule
 
 module alu ( input [31:0] a,b,
              input [2:0] ALUControl,
@@ -639,8 +772,7 @@ module alu ( input [31:0] a,b,
 
 endmodule
 
-
-// shifter  LSL 
+//shifter  LSL 
 module shifter(input  [31:0] a, 
                input  [4:0] shamt, 
                input  [1:0] shtype, 
@@ -650,7 +782,55 @@ module shifter(input  [31:0] a,
     case (shtype) 
       2'b00:   y = a << shamt; 
 	  2'b01:   y = a >> shamt;
+	  2'b10:   y = $signed(a) >>> shamt;
+	  2'b11:   y = (a >> shamt ) | (a << (32- shamt));
       default: y = a; 
     endcase 
   end
 endmodule 
+
+module mla(rn,rm,y);
+	input wire[31:0] rn,rm;
+	output wire [31:0] y;
+	assign y = rn*rm;
+endmodule
+
+
+module signed_div(rn,rm,y);
+	input wire signed [31:0] rn,rm;
+	output wire signed [31:0] y;
+	assign y = rn/rm;	
+endmodule
+
+module absolute_value(value,abs_value);
+	input wire signed [31:0] value;
+	output wire [31:0] abs_value;
+	assign abs_value = (value < 0) ? -value :value;
+endmodule
+
+
+module usigned_div(rn,rm,y);
+	input wire [31:0] rn,rm;
+	output wire [31:0] y;
+	wire [31:0] abs_rn,abs_rm;
+
+	absolute_value a_rn(rn,abs_rn);
+	absolute_value a_rm(rm,abs_rm);
+
+	assign y = (abs_rm != 0 && abs_rn != 0) ? (abs_rn / abs_rm) : 0;
+
+endmodule
+
+
+module divider(rn,rm,op,y);
+	input wire [31:0] rn,rm;
+	input wire op;
+	output wire [31:0] y;
+
+	wire [31:0] s_y,u_y;
+	signed_div s(rn,rm,s_y);
+	usigned_div u(rn,rm,u_y);
+	
+	assign y = (op == 1) ? u_y : s_y;
+
+endmodule
